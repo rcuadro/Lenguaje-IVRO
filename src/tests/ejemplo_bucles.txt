@@ -1,0 +1,28 @@
+main: empty -> int{
+	int hola := 2;
+	[int, 3] arr := [1,2,3];
+
+	for(int i := 0; i < 3; i := i + 1){
+		write(arr[i]);
+		hola := hola + i;
+	}
+	write(hola);
+	
+	int j := 0;
+	while( j < 3){
+		write(arr[j]);
+		hola := hola * (j + 1);
+		j := j + 1;
+	}
+	write(hola);
+	
+	j := 0;
+	repeat{
+		write(arr[j]);
+		hola := hola - j;
+		j := j + 1;
+	} until (j = 3);
+	write(hola);
+	
+	return 0;
+}

@@ -1,0 +1,42 @@
+suma1: int a, int b -> int {
+	return a + b;
+}
+
+suma: int a, int b -> int {
+	int result := a + b; 
+	return result ;
+}
+
+suma: int a, int b, int ? result -> empty {
+	result := a + b; 
+}
+
+sumaElems: [int, 10]  arr, int n -> int {
+	int result := 0; 
+	for(int i := 0; i < n; i := i + 1){
+		result := result + arr[i];
+	}
+	return result;
+}
+
+main: empty -> int{
+
+	int num := suma1(53, 14);
+	write(num);
+	
+	num := suma(num, -10);
+	write(num);
+
+	
+	int result := 3;
+	suma(10, 52, result);
+	write(result);
+	
+	[int, 10] arr := [1,2,3,4,5,6,7,8,9,10];
+	write(sumaElems(arr, 10));
+	
+	return 0;
+}
+
+
+

@@ -1,0 +1,29 @@
+cte int TAM := 10;
+denote [int, TAM] as array;
+
+main: empty -> int {
+	array arr;
+	
+	for(int i := 0; i < TAM; i := i + 1){
+		arr[i] := i + 1; 
+	}
+
+	bool b1 := True;
+	bool b2 := False;
+	
+	if(arr[TAM - 1] < 10){
+		write(TAM / 3);
+	}
+	else if(arr[TAM - 1] = 10 & !b2){
+		if((b1 | b2) & !False){
+			write(777);
+		}
+		write(TAM / 5);
+		write(TAM % 5);
+	}
+	else{
+		write(1);
+	}
+	
+	return 0;
+}

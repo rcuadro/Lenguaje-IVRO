@@ -1,0 +1,21 @@
+tuple (int, bool, [int,5]){
+	v1 := -17,
+	v2 := True,
+	v3
+} mi_tupla;
+
+
+main: empty -> int{
+	mi_tupla t;
+	
+	write(t.v1);
+	write(t.v2);
+	
+	t.v3 := [0,2,4,6,8];
+	
+	for(int i := 0; i < 5; i := i + 2){
+		write(t.v3[i]);
+	}
+	
+	return 0;
+}

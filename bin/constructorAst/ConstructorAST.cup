@@ -1,0 +1,437 @@
+package constructorAst;
+
+import java_cup.runtime.*;
+import alex.AnalizadorLexicoExp;
+import alex.UnidadLexica;
+import alex.TokenValue;
+import errors.GestionErroresExp;
+
+import ast.*;
+import ast.expresiones.*;
+import ast.expresiones.accesos.*;
+import ast.instruccion.*;
+import ast.instruccion.bucle.*;
+import ast.instruccion.condicional.*;
+import ast.instruccion.funciones.*;
+import ast.tipos.*;
+
+
+import java.util.ArrayList;
+
+
+scan with {: return getScanner().next_token(); :};
+parser code {: 
+   private GestionErroresExp errores;
+   public void syntax_error(Symbol unidadLexica) {
+     errores.errorSintactico((UnidadLexica)unidadLexica);
+   }
+:};
+init with {: 
+   errores = new GestionErroresExp();
+   AnalizadorLexicoExp alex = (AnalizadorLexicoExp)getScanner();
+   alex.fijaGestionErrores(errores);
+:};
+
+
+terminal     
+//PALABRAS RESERVADAS
+TUPL, DENO, AS, CTE, IF, ELSE, FOR, WHIL, REPE, UNTL, CASE, EQLS, OTWS, RET, NMEM, DEL,
+
+//SIMBOLOS
+EQ, NOT, NEQ, LESS, GREA, GEQ, LEQ, ASIG, LAPE, LCIE, CAPE, CCIE, PAPE, PCIE, DOSP, PYC, COMA, PTO, INTR, ROBA, SUMA, RSTA, PROD, DIV, POT, MOD, AND, OR, THEN, FLCH;
+
+terminal TokenValue IDEN, EINT, EBOO, TINT, TBOO, MAIN, READ, WRTE, EMPT ;
+
+
+non terminal Programa S;
+non terminal ArrayList<Instruccion> INSTRUCCION_GLOBAL;
+non terminal Instruccion INSTRUCCION;
+non terminal Declaracion DECLARACION; //Ahora Sí es declaracion. 
+non terminal Asignacion ASIGNACION;
+non terminal ArrayList<Expresion> ELEMS;
+non terminal Tipo TIPO;
+non terminal Denote DENOTE;
+non terminal CreacionTupla CREATE_TUPL;
+non terminal ArrayList<Tipo> TIPOS_TUPL;
+non terminal ArrayList<CampoTupla> ITEMS_TUPL;
+non terminal Creacion CREACION; //Crear clase Creacion (same shit que con declaracion)
+non terminal Expresion E0, E1, E2, E3, E4, E5, E6, E7, E8;
+non terminal KindE OP1, OP2, OP3, OP4;
+non terminal Tipo TIPO_BASICO; //Revisar x si aca
+non terminal Constantes CONSTANTES;
+non terminal While BUCLE_WHILE;
+non terminal For BUCLE_FOR; // ASIG_FOR,
+non terminal Repeat BUCLE_REPEAT;
+non terminal ArrayList<Instruccion> BLOQUE;
+non terminal Funcion FUN_MAIN;
+non terminal Condicional IF_COND, ELSE_COND;
+non terminal Funcion FUNCION;
+non terminal ArrayList<Parametro> PARAMS_FUN;
+non terminal LlamadaFun LLAMADA_FUN;
+non terminal ArrayList<Expresion> ARGS_FUN;
+non terminal Tipo TIPOS_FUN;
+non terminal Acceso A0, A1, A2, A3;
+non terminal Incase INCASE;
+non terminal ArrayList<CasoIncase> CUERPO_INCASE;
+
+
+
+
+S ::= 			INSTRUCCION_GLOBAL:instGlob
+			{: RESULT = new Programa(instGlob); :};
+
+
+INSTRUCCION_GLOBAL ::=	INSTRUCCION_GLOBAL:instGlob CREACION:crea PYC 
+				{: instGlob.add(crea); RESULT = instGlob; :}
+			| INSTRUCCION_GLOBAL:instGlob FUN_MAIN:fMain 
+				{: instGlob.add(fMain); RESULT = instGlob; :}
+			| INSTRUCCION_GLOBAL:instGlob FUNCION:fun
+				{: instGlob.add(fun); RESULT = instGlob; :}
+			| 
+				{: RESULT = new ArrayList<Instruccion>(); :};
+			
+			
+// PRODUCCIONES DE FUNCIONES:
+
+FUNCION ::=		IDEN:id DOSP PARAMS_FUN:paramsF FLCH TIPO_BASICO:tipo LAPE BLOQUE:blq LCIE
+				{: RESULT = new Funcion(id.lexema, tipo, paramsF, blq); :}
+			| IDEN:id DOSP PAPE PARAMS_FUN:paramsF PCIE FLCH TIPO_BASICO:tipo LAPE BLOQUE:blq LCIE
+				{: RESULT = new Funcion(id.lexema, tipo, paramsF, blq); :}
+			| IDEN:id DOSP EMPT FLCH TIPO_BASICO:tipo LAPE BLOQUE:blq LCIE
+				{: RESULT = new Funcion(id.lexema, tipo, new ArrayList<Parametro>(), blq); :}
+			| IDEN:id DOSP error FLCH TIPO_BASICO:tipo LAPE BLOQUE:blq LCIE
+				{: System.out.println("ERROR EN LA DECLARACIÓN DE UNA FUNCION"); RESULT = null; :};
+			
+PARAMS_FUN ::=		PARAMS_FUN:pFun COMA TIPOS_FUN:tFun IDEN:id
+				{: pFun.add(new Parametro(tFun, id.lexema)); RESULT = pFun; :}
+			| PARAMS_FUN:pFun COMA TIPOS_FUN:tFun INTR IDEN:id
+				{: pFun.add(new Parametro(tFun, id.lexema, true)); RESULT = pFun; :}
+			| TIPOS_FUN:tFun IDEN:id 
+				{: RESULT = new ArrayList<Parametro>(); RESULT.add(new Parametro(tFun, id.lexema)); :}
+			| TIPOS_FUN:tFun INTR IDEN:id 
+				{: RESULT = new ArrayList<Parametro>(); RESULT.add(new Parametro(tFun, id.lexema, true)); :};
+			
+TIPOS_FUN ::=		TIPO_BASICO:tipoB
+				{: RESULT = tipoB; :}
+			| CAPE TIPO:tipo COMA E0:exp CCIE
+				{: RESULT = new TArray(tipo, exp); :};
+			//| CAPE TIPO:tipo CCIE INTR 
+			//	{: RESULT = new TArray(tipo, null); :}; //O es un TPuntero?
+			
+FUN_MAIN ::=		MAIN:main DOSP EMPT FLCH TINT:tInt LAPE BLOQUE:bloq LCIE 
+				{: RESULT = new Funcion(main.lexema, new TBasicos(KindT.TINT), new ArrayList<Parametro>(), bloq); :}
+			| MAIN:main DOSP error FLCH TINT:tInt LAPE BLOQUE:bloq LCIE 
+				{:System.out.println("ERROR EN LA DECLARACIÓN DE MAIN"); RESULT = null; :};
+
+LLAMADA_FUN ::=		IDEN:id PAPE ARGS_FUN:argsF PCIE
+				{: RESULT = new LlamadaFun(id.lexema, argsF); :}
+			| READ:read PAPE IDEN:id PCIE
+				{: RESULT = new LlamadaFun(read.lexema, new AId(id.lexema)); :}
+			| WRTE:write PAPE E0:exp PCIE 
+				{: RESULT = new LlamadaFun(write.lexema, exp); :};
+
+ARGS_FUN ::=		ARGS_FUN:argsF COMA E0:exp
+				{: argsF.add(exp); RESULT = argsF; :}
+			| E0:exp
+				{: RESULT = new ArrayList<Expresion>(); RESULT.add(exp); :}
+			| 
+				{: RESULT = new ArrayList<Expresion>(); :};
+		
+
+// PRODUCCIONES DE CREACIONES
+CREACION ::= 		DECLARACION:decl
+				{: RESULT = decl; :}
+			| DENOTE:deno
+				{: RESULT = deno; :}
+			| CREATE_TUPL:creaT
+				{: RESULT = creaT; :}
+			| error 
+				{: System.out.println("ERROR EN CREACIÓN"); RESULT = null; :};
+
+TIPO ::=		TIPO_BASICO:tipo
+				{: RESULT = tipo; :}
+			| TIPO:tipo ROBA 
+				{: RESULT = new TPuntero(tipo); :}
+			| CAPE TIPO:tipo COMA E0:exp CCIE 		//Esto se ve que sea un entero o una cte entera en tipado.
+				{: RESULT = new TArray(tipo, exp); :};
+
+
+TIPO_BASICO ::=		IDEN:id
+			// Igual convendría cambiarle el nombre a "TNombre"
+				{: RESULT = new TDenote(id.lexema); :}
+			| TBOO:tBoo
+				{: RESULT = new TBasicos(KindT.TBOO); :}
+			| TINT:tInt
+				{: RESULT = new TBasicos(KindT.TINT); :}
+			| EMPT:empty
+				{: RESULT = new TBasicos(KindT.EMPT); :};
+
+DECLARACION ::=		TIPO:tipo IDEN:id
+				{: RESULT = new Declaracion(tipo, id.lexema); :}
+			| TIPO:tipo IDEN:id ASIG E0:exp
+				{: RESULT = new Declaracion(tipo, id.lexema, exp); :}
+			| CTE TIPO:tipo IDEN:id ASIG E0:exp
+				{: RESULT = new Declaracion(tipo, id.lexema, exp, true); :};
+			
+DENOTE ::=		DENO TIPO:tipo AS IDEN:id 
+				{: RESULT = new Denote(tipo, id.lexema); :};
+			
+CREATE_TUPL ::=		TUPL PAPE TIPOS_TUPL:tipos PCIE LAPE ITEMS_TUPL:campos LCIE IDEN:id
+				{: RESULT = new CreacionTupla(id.lexema, tipos, campos); :} ;
+
+TIPOS_TUPL ::=		TIPOS_TUPL:tiposT COMA TIPO:tipo 
+				{: tiposT.add(tipo); RESULT = tiposT; :}
+			| TIPO:tipo 
+				{: RESULT = new ArrayList<Tipo>(); RESULT.add(tipo); :};
+
+ITEMS_TUPL ::=		ITEMS_TUPL:items COMA IDEN:id ASIG E0:exp
+				{: items.add(new CampoTupla(id.lexema, exp)); RESULT = items; :}
+			| ITEMS_TUPL:items COMA IDEN:id
+				{: items.add(new CampoTupla(id.lexema)); RESULT = items; :}
+			| IDEN:id ASIG E0:exp
+				{: RESULT = new ArrayList<CampoTupla>(); RESULT.add(new CampoTupla(id.lexema, exp)); :}
+			| IDEN:id
+				{: RESULT = new ArrayList<CampoTupla>(); RESULT.add(new CampoTupla(id.lexema)); :};
+			
+
+// PRODUCCIONES DE BUCLES:
+
+BUCLE_WHILE ::=		WHIL PAPE E0:exp PCIE LAPE BLOQUE:blq LCIE 
+				{: RESULT = new While(exp, blq); :}
+			| WHIL error LAPE BLOQUE:blq LCIE
+				{: System.out.println("ERROR EN BUCLE WHILE"); RESULT = null; :};
+
+//El for ahora mismo no admite algo como "for(i := 0;..." ó "for(i; ...". REVISARLO.
+BUCLE_FOR ::=		FOR PAPE DECLARACION:dec PYC E0:exp PYC ASIGNACION:asig PCIE LAPE BLOQUE:bloq LCIE
+				{: RESULT = new For(dec, exp, asig, bloq); :}
+			| FOR error LAPE BLOQUE:bloq LCIE
+				{: System.out.println("ERROR EN BUCLE FOR"); RESULT = null; :};
+
+
+BUCLE_REPEAT ::= 	REPE LAPE BLOQUE:blq LCIE UNTL PAPE E0:exp PCIE 
+				{: RESULT = new Repeat(exp, blq); :}
+			| REPE LAPE BLOQUE:bloq LCIE UNTL error
+				{: System.out.println("ERROR EN BUCLE REPEAT"); RESULT = null; :};
+
+
+
+// PRODUCCIONES DE CONDICIONALES E INCASE:
+IF_COND ::= 		IF PAPE E0:exp PCIE LAPE BLOQUE:blq LCIE ELSE_COND:nextCond
+				{: RESULT = new Condicional(exp, blq, nextCond); :}
+			| IF error LAPE BLOQUE:blq LCIE ELSE_COND:nextCond
+				{: System.out.println("ERROR EN CONDICIONAL"); RESULT = null; :};
+
+ELSE_COND ::= 		ELSE IF_COND:cond
+				{: RESULT = cond; :}
+			| ELSE LAPE BLOQUE:blq LCIE 
+				{: RESULT = new Condicional(null, blq, null); :}
+			| 
+				{: RESULT = null; :};
+
+
+//Falta incluir llamadas a funciones en la condicion.
+//Falta permitir que los casos sean variables constantes.
+INCASE ::=		CASE A0:acc LAPE CUERPO_INCASE:cpoInc LCIE 
+				{: RESULT = new Incase(acc, cpoInc); :};
+
+CUERPO_INCASE ::=	EQLS EINT:eInt THEN LAPE BLOQUE:blq LCIE CUERPO_INCASE:cpoInc
+				{: cpoInc.add(new CasoIncase(Integer.valueOf(Integer.parseInt(eInt.lexema)), blq)); RESULT = cpoInc; :}
+			| OTWS THEN LAPE BLOQUE:blq LCIE 
+				{: RESULT = new ArrayList<CasoIncase>(); RESULT.add(new CasoIncase(null, blq)); :}
+			| 
+				{: RESULT = new ArrayList<CasoIncase>(); :};
+			
+
+// PRODUCCIONES DE INSTRUCCIONES VARIAS:
+
+BLOQUE ::= 		BLOQUE:blq INSTRUCCION:inst 
+				{: blq.add(inst); RESULT = blq; :}
+			| 
+				{: RESULT = new ArrayList<Instruccion>(); :};
+			
+INSTRUCCION ::= 	DECLARACION:dec PYC
+				{: RESULT = dec; :}
+			| ASIGNACION:asig PYC
+				{: RESULT = asig; :}
+			| INCASE:incase
+				{: RESULT = incase; :}
+			| BUCLE_FOR:bFor
+				{: RESULT = bFor; :}
+			| BUCLE_WHILE:bWhile
+				{: RESULT = bWhile; :}
+			| BUCLE_REPEAT:bRepeat PYC 
+				{: RESULT = bRepeat; :}
+			| IF_COND:cond
+				{: RESULT = cond; :}
+			| LLAMADA_FUN:llamFun PYC
+				{: RESULT = llamFun; :}
+			| RET:ret PYC
+				{: RESULT = new Return(null); :}
+			| RET:ret E0:exp PYC
+				{: RESULT = new Return(exp); :}
+			| DEL:del A0:acc PYC //IDEN:id PYC //TODO CREO QUE NO ES IDEN ES A0 (DETALLE)
+				{: RESULT = new Delete(acc); :}
+			| error PYC
+				{: System.out.println("ERROR EN UNA INSTRUCCION"); RESULT = null; :}; 
+
+ASIGNACION ::= 		A0:acc ASIG E0:exp
+			{: RESULT = new Asignacion(acc, exp); :};
+
+	
+// PRODUCCIONES DE EXPRESIONES:
+
+E0 ::= 			E0:exp0 OR E1:exp1
+				{: RESULT = new EBin(exp0, KindE.OR, exp1); :}
+			| E1:exp1
+				{: RESULT = exp1; :};
+			
+E1 ::=			E1:exp1 AND E2:exp2
+				{: RESULT = new EBin(exp1, KindE.AND, exp2); :}
+			| E2:exp2
+				{: RESULT = exp2; :};
+			
+E2 ::=			NOT E2:exp2
+				{: RESULT = new EUn(exp2, KindE.NOT); :}
+			| E3:exp3
+				{: RESULT = exp3; :};
+
+E3 ::=			E3:exp3 OP1:op1 E4:exp4
+				{: RESULT = new EBin(exp3, op1, exp4); :}
+			| E4:exp4
+				{: RESULT = exp4; :};
+			
+E4 ::=			E4:exp4 OP2:op2 E5:exp5
+				{: RESULT = new EBin(exp4, op2, exp5); :}
+			| E5:exp5 
+				{: RESULT = exp5; :};
+			
+E5 ::=			E5:exp5 OP3:op3 E6:exp6
+				{: RESULT = new EBin(exp5, op3, exp6); :}
+			| E6:exp6 
+				{: RESULT = exp6; :};
+			
+E6 ::=			E6:exp6 OP4:op4 E7:exp7
+				{: RESULT = new EBin(exp6, op4, exp7); :}
+			| E7:exp7 
+				{: RESULT = exp7; :};			
+
+E7 ::=			E7:exp7 POT E8:exp8
+				{: RESULT = new EBin(exp7, KindE.POT, exp8); :}
+			| E8:exp8 
+				{: RESULT =  exp8; :};
+			
+E8 ::=			A0:acc
+				{: RESULT = acc; :}
+			| CONSTANTES:consts
+				{: RESULT = consts; :}
+				
+			| LAPE ELEMS:elems LCIE
+				{: RESULT = new Tupla(elems); :}
+				
+			| PAPE E0:exp PCIE
+				{: RESULT = exp; :}
+			| CAPE ELEMS:elems CCIE
+				{: RESULT = new Array(elems); :}
+// Crear una clase llamadaExp que contenga un atributo LlamadaFun
+			| LLAMADA_FUN:llamFun  //REVISAR QUE LO HEMOS PUESTO RAPIDO
+				{: RESULT = new LlamadaFunExp(llamFun); :}
+			| NMEM TIPO:tipo 
+				{: RESULT = new NewMem(tipo); :};
+				
+//Puede ser que esto esté al revés?
+ELEMS ::=		ELEMS:elems COMA E0:exp 
+				{: elems.add(exp); RESULT = elems; :}
+			| E0:exp
+				{: RESULT = new ArrayList<Expresion>(); RESULT.add(exp); :}
+			| 
+				{: RESULT = new ArrayList<Expresion>(); :};
+			
+// Esto no es un cte, es un valor que pones ahí, i.e. un 4.
+CONSTANTES ::= 		EINT:eInt
+				{: RESULT = new Int(eInt.lexema);  :}
+			| EBOO:eBoo
+				{: RESULT = new Bool(eBoo.lexema); :};
+			
+			
+
+// PRODUCCIONES DE ACCESOS:
+//PROBAR CASOS PATOLÓGICOS
+A0 ::=			ROBA A0:acc
+				{: RESULT = new AUn(acc, KindA.ROBA); :}
+			| A1:acc					 //IDEN:id A1:acc 
+				{: RESULT = acc; :};
+			
+A2::= 			A3:acc1 PTO A2:acc2
+				{: RESULT = new ABin(acc1, KindA.PTO, acc2); :}
+			| A3:acc2 
+				{: RESULT =  acc2; :};
+			
+A1 ::=			A1:acc2 CAPE E0:exp CCIE 
+				{: RESULT = new ABin(acc2, KindA.CORCHS, exp); :}
+			| A2:acc3
+				{: RESULT =  acc3; :};
+			
+/*
+
+A1 ::= 			A1:acc1 PTO A2:acc2
+				{: RESULT = new ABin(acc1, KindA.PTO, acc2); :}
+			| A2:acc2 
+				{: RESULT =  acc2; :};
+			
+A2 ::=			A2:acc2 CAPE E0:exp CCIE 
+				{: RESULT = new ABin(acc2, KindA.CORCHS, exp); :}
+			| A3:acc3
+				{: RESULT =  acc3; :};
+				
+
+*/
+			
+A3 ::=			IDEN:id
+				{: RESULT = new AId(id.lexema); :};
+			//| PAPE A0:acc4 PCIE
+			//	{: RESULT = acc4; :};
+			
+
+
+// PRODUCCIONES DE OPERACIONES :
+OP1 ::=			EQ
+				{: RESULT = KindE.EQ; :}
+			| NEQ 
+				{: RESULT = KindE.NEQ; :};
+			
+OP2 ::=			LEQ
+				{: RESULT = KindE.LEQ; :}
+			| GEQ
+				{: RESULT = KindE.GEQ; :}
+			| LESS
+				{: RESULT = KindE.LESS; :}
+			| GREA 
+				{: RESULT = KindE.GREA; :};
+			
+OP3 ::= 		SUMA
+				{: RESULT = KindE.SUMA; :}
+			| RSTA 
+				{: RESULT = KindE.RSTA; :};
+			
+OP4 ::=			PROD
+				{: RESULT = KindE.PROD; :}
+			| DIV
+				{: RESULT = KindE.DIV; :}
+			| MOD 
+				{: RESULT = KindE.MOD; :};
+			
+/*
+OPERADOR	PRIO	TIPO	ASOCIATIVIDAD
+,		0	BIN	IZQ
+:=		1	BIN	NO
+|		2	BIN	IZQ
+&		3	BIN	IZQ
+!		4	UN	NO
+=, !=		5	BIN	NO
+<=, >=, <, >	6	BIN	NO
++, -		7	BIN	IZQ
+*, /, %		8	BIN	IZQ
+^		9	BIN	IZQ 		
+@		10	UN	IZQ		
+[]		11	BIN?	NO?
+*/
